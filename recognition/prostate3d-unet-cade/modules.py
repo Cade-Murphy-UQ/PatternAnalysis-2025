@@ -46,3 +46,21 @@ class UNet3D(nn.Module):
 
         # Output layer
         self.out_conv = nn.Conv3d(64, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        # Encoder
+        e1 = self.enc1(x)
+        e2 = self.enc2(self.pool1(e1))
+        e3 = self.enc3(self.pool2(e2))
+        e4 = self.enc4(self.pool3(e3))
+
+        # Bottleneck
+        b = self.bottom(self.pool4(e4))
+
+        # Decoder
+        d4 = self.dec4(torch.cat([self.up4(b),  e4], dim=1))
+        d3 = self.dec3(torch.cat([self.up3(d4), e3], dim=1))
+        d2 = self.dec2(torch.cat([self.up2(d3), e2], dim=1))
+        d1 = self.dec1(torch.cat([self.up1(d2), e1], dim=1))
+
+        return self.out_conv(d1)
