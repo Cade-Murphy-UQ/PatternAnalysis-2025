@@ -4,6 +4,7 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 from modules import UNet3D
 from dataset import load_data_3D
 import numpy as np
+import matplotlib.pyplot as plt
 
 IMG_PATHS = [
     "HipMRI_Study_open/semantic_MRs/B006_Week0_LFOV.nii.gz",
@@ -70,3 +71,19 @@ for epoch in range(10):
     val_losses.append(val_loss)
 
     print(f"Epoch {epoch}: Train Loss = {train_loss}, Val Loss = {val_loss}")
+
+
+#Plotting Curves
+
+plt.figure()
+plt.plot(train_losses, label="Train Loss")
+plt.plot(val_losses, label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Cross-Entropy Loss")
+plt.title("Training vs Validation Loss")
+plt.legend()
+plt.tight_layout()
+plt.savefig("loss_curve.png")
+plt.close()
+
+print("Saved: loss_curve.png")
