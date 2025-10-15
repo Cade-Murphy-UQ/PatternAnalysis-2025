@@ -8,11 +8,27 @@ import matplotlib.pyplot as plt
 
 IMG_PATHS = [
     "HipMRI_Study_open/semantic_MRs/B006_Week0_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/B040_Week0_LFOV.nii.gz"
+    "HipMRI_Study_open/semantic_MRs/B040_Week0_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K018_Week4_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K018_Week5_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K019_Week1_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K019_Week2_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K019_Week3_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K019_Week4_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K019_Week5_LFOV.nii.gz",
+    "HipMRI_Study_open/semantic_MRs/K019_Week6_LFOV.nii.gz"
 ]
 MSK_PATHS = [
     "HipMRI_Study_open/semantic_labels_only/B006_Week0_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/B040_Week0_SEMANTIC.nii.gz"
+    "HipMRI_Study_open/semantic_labels_only/B040_Week0_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K018_Week4_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K018_Week5_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K019_Week1_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K019_Week2_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K019_Week3_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K019_Week4_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K019_Week5_SEMANTIC.nii.gz",
+    "HipMRI_Study_open/semantic_labels_only/K019_Week6_SEMANTIC.nii.gz"
 ]
 
 # load data
@@ -26,16 +42,18 @@ Y = torch.from_numpy(Y).long()
 
 full_dataset = TensorDataset(X, Y)
 
-train_size = int(0.8 * len(full_dataset))
-val_size = len(full_dataset) - train_size
+train_size = int(0.6 * len(full_dataset))
+val_size = int(0.2 * len(full_dataset))
+test_size = len(full_dataset) - train_size - val_size
 
-train_ds, val_ds = random_split(full_dataset, [train_size, val_size])
+train_ds, val_ds, test_ds = random_split(full_dataset, [train_size, val_size, test_size])
 
 # setup
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 train_loader = DataLoader(train_ds, batch_size=1, shuffle=True)
-val_loader   = DataLoader(val_ds, batch_size=1, shuffle=False)
+val_loader = DataLoader(val_ds, batch_size=1, shuffle=False)
+test_loader = DataLoader(test_ds, batch_size=1, shuffle=False)
 
 model = UNet3D(in_channels=1, out_channels=6).to(device)
 loss_fn = nn.CrossEntropyLoss()
@@ -44,7 +62,7 @@ opt = torch.optim.Adam(model.parameters(), lr=1e-4)
 train_losses, val_losses = [], []
 
 #training loop
-for epoch in range(10):
+for epoch in range(5):
     model.train()
     total_train_loss = 0.0
     for x, y in train_loader:
@@ -74,7 +92,6 @@ for epoch in range(10):
 
 
 #Plotting Curves
-
 plt.figure()
 plt.plot(train_losses, label="Train Loss")
 plt.plot(val_losses, label="Validation Loss")
@@ -86,4 +103,40 @@ plt.tight_layout()
 plt.savefig("loss_curve.png")
 plt.close()
 
-print("Saved: loss_curve.png")
+
+
+def dice_coefficient(logits, target, num_classes=6, eps=1e-6):
+    pred = torch.argmax(logits, dim=1)
+    dice_scores = []
+
+    for c in range(num_classes):
+        pred_mask = (pred == c).to(torch.float32)
+        true_mask = (target == c).to(torch.float32)
+
+        intersection = torch.sum(pred_mask * true_mask)
+        union = torch.sum(pred_mask) + torch.sum(true_mask)
+
+        dice = (2 * intersection + eps) / (union + eps)
+        dice_scores.append(dice)
+
+    return torch.mean(torch.stack(dice_scores))
+
+# Dice coeffecient Testing
+model.eval()
+test_loss, test_dice, batches = 0.0, 0.0, 0
+
+print("Testing")
+with torch.no_grad():
+    for x, y in test_loader:
+        x, y = x.to(device), y.to(device)
+        logits = model(x)
+        test_loss += float(loss_fn(logits, y))
+        test_dice += float(dice_coefficient(logits, y, num_classes=6))
+        batches += 1
+
+if batches > 0:
+    test_loss /= batches
+    test_dice /= batches
+    print(f"Loss: {test_loss}, Dice: {test_dice}")
+else:
+    print("No samples in test split.")
