@@ -2,38 +2,14 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader, random_split
 from modules import UNet3D
-from dataset import load_data_3D
+from dataset import load_from_folders
 import numpy as np
 import matplotlib.pyplot as plt
 
-IMG_PATHS = [
-    "HipMRI_Study_open/semantic_MRs/B006_Week0_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/B040_Week0_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K018_Week4_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K018_Week5_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K019_Week1_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K019_Week2_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K019_Week3_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K019_Week4_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K019_Week5_LFOV.nii.gz",
-    "HipMRI_Study_open/semantic_MRs/K019_Week6_LFOV.nii.gz"
-]
-MSK_PATHS = [
-    "HipMRI_Study_open/semantic_labels_only/B006_Week0_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/B040_Week0_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K018_Week4_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K018_Week5_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K019_Week1_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K019_Week2_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K019_Week3_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K019_Week4_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K019_Week5_SEMANTIC.nii.gz",
-    "HipMRI_Study_open/semantic_labels_only/K019_Week6_SEMANTIC.nii.gz"
-]
+IMG_DIR = "HipMRI_Study_open/semantic_MRs"
+MSK_DIR = "HipMRI_Study_open/semantic_labels_only"
 
-# load data
-X = load_data_3D(IMG_PATHS, normImage=True, dtype=np.float32)
-Y = load_data_3D(MSK_PATHS, normImage=False, dtype=np.uint8)
+X, Y = load_from_folders(IMG_DIR, MSK_DIR)
 
 # reshape to PyTorch format
 X = torch.from_numpy(X).unsqueeze(1).float()

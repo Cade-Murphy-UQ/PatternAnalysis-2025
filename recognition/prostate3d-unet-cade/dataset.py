@@ -1,6 +1,7 @@
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
+import os
 
 def to_channels(arr: np.ndarray, dtype=np.uint8) -> np.ndarray:
     channels = np.unique(arr)
@@ -81,3 +82,19 @@ def load_data_3D(imageNames, normImage=False, categorical=False, dtype=np.float3
         return images, affines
     else:
         return images
+
+
+def load_from_folders(img_dir, mask_dir, normImage_img=True, normImage_msk=False,
+                      dtype_img=np.float32, dtype_msk=np.uint8):
+    img_files = [
+        os.path.join(img_dir, f)
+        for f in os.listdir(img_dir)
+    ]
+    msk_files = [
+        os.path.join(mask_dir, f)
+        for f in os.listdir(mask_dir)
+    ]
+
+    X = load_data_3D(img_files, normImage=normImage_img, dtype=dtype_img)
+    Y = load_data_3D(msk_files, normImage=normImage_msk, dtype=dtype_msk)
+    return X, Y
