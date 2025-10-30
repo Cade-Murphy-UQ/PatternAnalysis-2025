@@ -4,11 +4,14 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 from modules import UNet3D
 from dataset import load_from_folders
 import numpy as np
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
+from pyimgaug3d.augmenters import ImageSegmentationAugmenter
+from pyimgaug3d.augmentation import GridWarp, Flip, Identity
 
 IMG_DIR = "HipMRI_Study_open/semantic_MRs"
 MSK_DIR = "HipMRI_Study_open/semantic_labels_only"
+
+classes = 6
 
 X, Y = load_from_folders(IMG_DIR, MSK_DIR)
 
@@ -28,20 +31,19 @@ test_size = len(full_dataset) - train_size - val_size
 
 train_ds, val_ds, test_ds = random_split(full_dataset, [train_size, val_size, test_size])
 
-# setup
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 train_loader = DataLoader(train_ds, batch_size=1, shuffle=True)
 val_loader = DataLoader(val_ds, batch_size=1, shuffle=False)
 test_loader = DataLoader(test_ds, batch_size=1, shuffle=False)
 
-num_classes_found = int(torch.max(Y).item()) + 1
-model = UNet3D(in_channels=1, out_channels=num_classes_found).to(device)
+model = UNet3D(in_channels=1, out_channels=classes).to(device)
 
 def total_loss(logits, target, eps=1e-6):
-    # logits: [B,C,D,H,W], target: [B,D,H,W]
     u = F.softmax(logits, dim=1)
-    v = torch.zeros_like(u).scatter_(1, target.unsqueeze(1), 1)
+    #one hot for segments
+    v = F.one_hot(target.long(), num_classes=classes)
+    v = v.permute(0, 4, 1, 2, 3).float()  
     dims = (0, 2, 3, 4)
     inter = (u * v).sum(dims)
     denom = u.sum(dims) + v.sum(dims)
@@ -59,6 +61,13 @@ for epoch in range(5):
     total_train_loss = 0.0
     for x, y in train_loader:
         x, y = x.to(device), y.long().to(device)
+
+        # augment 25% if the time
+        if torch.rand(1).item() < 0.25:
+            xa, ya = aug_once(x[0], y[0], classes)
+            x = xa.unsqueeze(0)
+            y = ya.unsqueeze(0)
+
         opt.zero_grad()
         out = model(x)
         loss = total_loss(out, y)
@@ -89,25 +98,11 @@ for epoch in range(5):
 
     print(f"Epoch {epoch}: Train Loss = {train_loss}, Val Loss = {val_loss}")
 
-
-#Plotting Curves
-plt.figure()
-plt.plot(train_losses, label="Train Loss")
-plt.plot(val_losses, label="Validation Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Dice Loss")
-plt.title("Training vs Validation Loss")
-plt.legend()
-plt.tight_layout()
-plt.savefig("loss_curve.png")
-plt.close()
-
-
 def dice_coefficient(logits, target, eps=1e-6):
-    pred = torch.argmax(logits, dim=1)   # [B,D,H,W]
+    pred = torch.argmax(logits, dim=1)
     C = logits.size(1)
     scores = []
-    for c in range(1, C):  # foreground only
+    for c in range(1, C):
         pm = (pred == c).float()
         tm = (target == c).float()
         denom = pm.sum() + tm.sum()
@@ -116,11 +111,11 @@ def dice_coefficient(logits, target, eps=1e-6):
         inter = (pm * tm).sum()
         scores.append((2.0 * inter + eps) / (denom + eps))
     
-    if scores {
+    if scores:
         return torch.mean(torch.stack(scores))
-    } else {
-        torch.tensor(1.0, device=logits.device)
-    }
+    else :
+        return torch.tensor(1.0, device=logits.device)
+    
 
 # Dice coeffecient Testing
 model.eval()
@@ -141,3 +136,27 @@ if batches > 0:
     print(f"Loss: {test_loss}, Dice: {test_dice}")
 else:
     print("No samples in test split.")
+
+#Augmentation orientation modifiers
+aug = ImageSegmentationAugmenter()
+aug.add_augmentation(GridWarp(grid=(4, 5, 5), max_shift=10))
+aug.add_augmentation(Flip(0))
+aug.add_augmentation(Identity())
+
+def aug_once(x1: torch.Tensor, y1: torch.Tensor, num_classes: int):
+    dev = x1.device
+
+    # NumPy conversion
+    x_np = x1.detach().cpu().numpy().astype(np.float32)
+    x_np = np.transpose(x_np, (1, 2, 3, 0))
+
+    y_np = y1.detach().cpu().numpy().astype(np.int32)
+    y_oh = np.eye(num_classes, dtype=np.uint8)[y_np]
+
+    # paired augmentation
+    aimg, aseg = aug([x_np, y_oh])
+
+    # torch conversion
+    x_aug = torch.from_numpy(np.transpose(aimg, (3, 0, 1, 2))).to(dev).type_as(x1)
+    y_aug = torch.from_numpy(np.argmax(aseg, axis=-1)).to(dev).long()
+    return x_aug, y_aug
