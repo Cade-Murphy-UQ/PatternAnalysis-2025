@@ -65,26 +65,26 @@ class UNet3D(nn.Module):
         self.bottleneck = ContextBlock(128, 256, p_drop)
 
         # decoder, upsample then concatenate then localization
-        self.up4  = upsampling_module(256, 128)
+        self.up4 = upsampling_module(256, 128)
         self.loc4 = localization_module(128 + 128, 128, 128)
 
-        self.up3  = upsampling_module(128, 64)
+        self.up3 = upsampling_module(128, 64)
         self.loc3 = localization_module(64 + 64, 64, 64)
 
-        self.up2  = upsampling_module(64, 32)
+        self.up2 = upsampling_module(64, 32)
         self.loc2 = localization_module(32 + 32, 32, 32)
 
-        self.up1  = upsampling_module(32, 16)
+        self.up1 = upsampling_module(32, 16)
         self.loc1 = localization_module(16 + 16, 16, 16)
 
         # deep supervision heads for later element wise sum
         self.head_main = segmentation_layer(16, out_channels)
-        self.head_d2   = segmentation_layer(32, out_channels)
-        self.head_d3   = segmentation_layer(64, out_channels)
+        self.head_d2 = segmentation_layer(32, out_channels)
+        self.head_d3 = segmentation_layer(64, out_channels)
 
     def forward(self, x):
         # encoder
-        e1 = self.enc1(x);  d1 = self.down1(e1)
+        e1 = self.enc1(x); d1 = self.down1(e1)
         e2 = self.enc2(d1); d2 = self.down2(e2)
         e3 = self.enc3(d2); d3 = self.down3(e3)
         e4 = self.enc4(d3); d4 = self.down4(e4)

@@ -87,11 +87,13 @@ def train_val_test_save(model, X_np, Y_np, classes, ckpt_path, epochs=5, batch_s
 
 
     train_losses, val_losses = [], []
+    train_dices, val_dices = [], []
 
     #training loop
     for epoch in range(epochs):
         model.train()
         total_train_loss = 0.0
+        total_train_dice = 0.0
         for x, y in train_loader:
             x, y = x.to(device), y.long().to(device)
 
@@ -107,29 +109,39 @@ def train_val_test_save(model, X_np, Y_np, classes, ckpt_path, epochs=5, batch_s
             loss.backward()
             opt.step()
             total_train_loss += loss.item()
+            total_train_dice += float(dice_coefficient(out, y))
+
         train_loss = total_train_loss / len(train_loader)
+        train_dice = total_train_dice / len(train_loader)
         train_losses.append(train_loss)
+        train_dices.append(train_dice)
+
 
         #validate
         model.eval()
         total_val_loss = 0.0
+        total_val_dice = 0.0
         with torch.no_grad():
             for x, y in val_loader:
                 x, y = x.to(device), y.to(device)
                 out = model(x)
                 loss = total_loss(out, y)
                 total_val_loss += loss.item()
+                total_val_dice += float(dice_coefficient(out, y))
         val_loss = total_val_loss / len(val_loader)
+        val_dice = total_val_dice / len(val_loader)
+        val_losses.append(val_loss)
+        val_dices.append(val_dice)
 
         #save chkpt
         if val_loss < best_val:
             best_val = val_loss
             torch.save(model.state_dict(), ckpt_path)
-            print(f"Saved: {ckpt_path}  (val_loss={val_loss})")
+            print(f"Saved: {ckpt_path} (val_loss={val_loss})")
 
-        val_losses.append(val_loss)
+        
 
-        print(f"Epoch {epoch}: Train Loss = {train_loss}, Val Loss = {val_loss}")
+        print(f"Epoch {epoch}: Train Loss = {train_loss}, Val Loss = {val_loss}, Train Dice={train_dice}, Val Dice={val_dice}")
 
         
 
@@ -155,5 +167,9 @@ def train_val_test_save(model, X_np, Y_np, classes, ckpt_path, epochs=5, batch_s
     
     return {"train_losses": train_losses,
             "val_losses": val_losses,
+            "train_dices": train_dices,
+            "val_dices": val_dices,
             "test_loss": test_loss if batches else None,
-            "test_dice": test_dice if batches else None}
+            "test_dice": test_dice if batches else None,
+            "device": device,
+            "test_loader": test_loader}
