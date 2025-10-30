@@ -84,16 +84,22 @@ def load_data_3D(imageNames, normImage=False, categorical=False, dtype=np.float3
         return images
 
 
-def load_from_folders(img_dir, mask_dir, normImage_img=True, normImage_msk=False,
+def load_from_folders(img_dir, mask_dir,
+                      normImage_img=True, normImage_msk=False,
                       dtype_img=np.float32, dtype_msk=np.uint8):
-    img_files = [
-        os.path.join(img_dir, f)
-        for f in os.listdir(img_dir)
-    ]
-    msk_files = [
-        os.path.join(mask_dir, f)
-        for f in os.listdir(mask_dir)
-    ]
+
+    def list_nii(d):
+        out = []
+        for f in os.listdir(d):
+            if f.startswith('.'):
+                continue
+            if f.endswith('.nii') or f.endswith('.nii.gz'):
+                out.append(os.path.join(d, f))
+        out.sort()
+        return out
+
+    img_files = list_nii(img_dir)
+    msk_files = list_nii(mask_dir)
 
     X = load_data_3D(img_files, normImage=normImage_img, dtype=dtype_img)
     Y = load_data_3D(msk_files, normImage=normImage_msk, dtype=dtype_msk)
