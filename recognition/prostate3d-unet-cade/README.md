@@ -22,6 +22,19 @@ The UNet used in this project utilises a encoder-decoder architecture designed f
 The trainig process follows a train to validation to testing structure.
 Firstly for data preparation the MRI scans are segmentation masks are converted to PyTorch tensors, we then divide teh dataset into 60% training, 20% validation and 20% testing where each subset has a DataLoader.
 
+Train Test Val Split
+
+Validation 20% Split
+* This offers enough data to evaluate model performance per epoch while not taking too much away from training.
+
+Testing 20% split
+* This ensures a large enough set of unseen data is left for accurate and meaningful final evaluation.
+
+Training 60% split
+* This provides majority of data to allow the model to learn the complex features.
+
+If the dataset had been larger the validation and test proportions could have been smaller, but with a limnited dataset it was important that all three subsets remain representative, as even class distribution across all sets is extremely important for segmentation tasks were certain class can dominate like the background class.
+
 ### Augmentation
 To improve generalisation and get a better dice score random 3D augmentations were applied 25% of the time, Augmentations were defined in pyimaug3d and included
 * GridWarp, a spatial distortion
