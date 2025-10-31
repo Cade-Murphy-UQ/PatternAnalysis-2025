@@ -29,6 +29,7 @@ def aug_once(x1: torch.Tensor, y1: torch.Tensor, num_classes: int):
     y_aug = torch.from_numpy(np.argmax(aseg, axis=-1)).to(dev).long()
     return x_aug, y_aug
 
+#dice loss inspired by Brain Tumor Segmentation and Radiomics Survival Prediction, see README for reference [1]
 def total_loss(logits, target, eps=1e-6):
     u = F.softmax(logits, dim=1)
 
@@ -44,6 +45,7 @@ def total_loss(logits, target, eps=1e-6):
     return 1.0 - dice_per_class.mean()
 
 def dice_coefficient(logits, target, eps=1e-6):
+    # argmax to get discrete predictions
     pred = torch.argmax(logits, dim=1)
     C = logits.size(1)
     scores = []
@@ -55,7 +57,8 @@ def dice_coefficient(logits, target, eps=1e-6):
             continue
         inter = (pm * tm).sum()
         scores.append((2.0 * inter + eps) / (denom + eps))
-    
+
+    # return mean Dice across classes
     if scores:
         return torch.mean(torch.stack(scores))
     else :
@@ -73,6 +76,7 @@ def train_val_test_save(model, X_np, Y_np, classes, ckpt_path, epochs=5, batch_s
     Y = torch.from_numpy(Y_np).long()
     full_dataset = TensorDataset(X, Y)
 
+    # data loading and splitting
     test_size = int(test_split * len(full_dataset))
     val_size = int(val_split * len(full_dataset))
     train_size = len(full_dataset) - test_size - val_size
@@ -82,6 +86,7 @@ def train_val_test_save(model, X_np, Y_np, classes, ckpt_path, epochs=5, batch_s
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
 
+    #model moved to device and optimiser setup
     model = model.to(device)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
@@ -111,6 +116,7 @@ def train_val_test_save(model, X_np, Y_np, classes, ckpt_path, epochs=5, batch_s
             total_train_loss += loss.item()
             total_train_dice += float(dice_coefficient(out, y))
 
+        #average training metrics
         train_loss = total_train_loss / len(train_loader)
         train_dice = total_train_dice / len(train_loader)
         train_losses.append(train_loss)
